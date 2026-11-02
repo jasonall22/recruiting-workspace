@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<title>Recruiting workspace</title>
+<style>
+:root{font-family:Segoe UI,Arial,sans-serif;color:#192f31;background:#f3f4ee}*{box-sizing:border-box}body{margin:0}header{background:#123f38;color:white;padding:32px 5%}header small{letter-spacing:3px;color:#b8d4bb}h1{font-size:34px;margin:10px 0}header p{color:#d2e2d7}main{max-width:1400px;margin:auto;padding:26px}button,input,select,textarea{font:inherit;border:1px solid #b7c5bd;border-radius:7px;padding:10px}button{cursor:pointer;background:#164e42;color:white}button.secondary{background:white;color:#164e42}button:disabled{opacity:.6}button:focus-visible,a:focus-visible{outline:3px solid #ce971e;outline-offset:3px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:24px}.stat{background:white;border:1px solid #dbe2d9;border-radius:10px;padding:18px}.stat strong{display:block;font-size:30px;margin-top:7px}.layout{display:grid;grid-template-columns:minmax(340px,1fr) minmax(340px,1fr);gap:24px}.panel{background:white;border:1px solid #dbe2d9;border-radius:12px;padding:22px}.tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px}.tools input{flex:1;min-width:150px}.school{display:block;width:100%;text-align:left;background:white;color:#192f31;border:0;border-bottom:1px solid #e4e9e2;border-radius:0;padding:16px 8px}.school:hover,.school.active{background:#edf4e9}.school strong{font-size:17px}.muted{color:#63746c;font-size:14px}.badge{display:inline-block;background:#edf3ea;padding:4px 8px;border-radius:20px;font-size:12px;margin:7px 0}.tag{background:#fff3d3;color:#785712}label{display:block;font-weight:600;margin:15px 0 6px}textarea{width:100%;min-height:100px}h2{margin-top:0}h3{margin-top:26px;font-size:17px}.row{border-bottom:1px solid #e5e9e3;padding:12px 0}.row p{white-space:pre-wrap}#message{min-height:25px;color:#215b35}#message.error{color:#a12727}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:20px}.profile{margin:0 0 25px;color:#53675a}.empty{padding:20px 0;color:#63746c}a{color:#1b604a}.follow{background:#fff8e9;padding:10px;margin-top:8px;border-radius:6px}.follow button{padding:5px;margin-left:10px;font-size:12px}.print-only{display:none}#activityBody{min-height:65px}
+@media(max-width:800px){.layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}main{padding:15px}header{padding:25px}h1{font-size:28px}}
+@media print{@page{margin:12mm}header{background:white;color:black;padding:0}header small,header p{color:black}main{padding:0}.stats,.toolbar,.layout,.profile,#message{display:none}.print-only{display:block}.report-school{break-inside:avoid;border-bottom:1px solid #aaa;padding:10px 0;font-size:10pt}.report-school h3{margin:0 0 5px}.report-school p{margin:4px 0;white-space:pre-wrap}h1{font-size:22pt}}
+</style>
+<header><small>THE NEXT CHAPTER / CLASS OF 2027</small><h1>Recruiting workspace</h1><p>College baseball recruiting workspace · Outfield · R/R</p></header>
+<main hidden><div class="toolbar"><div><h2>Your recruiting board</h2><span class="muted">30 schools. One place to keep the next step clear.</span></div><button class="secondary" id="print">Print report</button></div>
+<p class="profile"></p>
+<div class="stats" id="stats"></div><div id="message" role="status" aria-live="polite"></div>
+<div class="layout"><section class="panel"><div class="tools"><input id="search" placeholder="Find a school or state" aria-label="Search schools"><select id="filter" aria-label="Filter by recruiting status"></select></div><div id="schools"></div></section><section class="panel" id="detail"><p class="empty">Select a school to get started.</p></section></div><section class="print-only" id="report"></section></main>
+<script src="cloud.js"></script><script>
+const statuses=['Not Contacted','Email Sent','Responded','Interested','Visit Scheduled','Offer Received','Declined'];
+let data,selected=1;const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const today=()=>{let d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+$('filter').innerHTML='<option value="">All statuses</option>'+statuses.map(s=>`<option>${s}</option>`).join('');
+function message(s,error=false){$('message').textContent=s;$('message').className=error?'error':''}
+async function load(){let r=await fetch('/api/data');if(!r.ok)throw Error('Could not load the recruiting database');data=await r.json();render()}
+async function save(path,body){try{let r=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});let result=await r.json();if(!r.ok)throw Error(result.error);await load();message('Saved.')}catch(e){message(e.message,true)}}
+function visible(){let q=$('search').value.toLowerCase();return data.schools.filter(s=>(s.name+' '+s.state).toLowerCase().includes(q)&&(!$('filter').value||s.status===$('filter').value)).sort((a,b)=>a.original_rank-b.original_rank)}
+function render(){let pending=data.followups.filter(f=>!f.completed_at);$('stats').innerHTML=[['Schools',data.schools.length],['Contacted',data.schools.filter(s=>s.status!=='Not Contacted').length],['Active interest',data.schools.filter(s=>['Interested','Visit Scheduled','Offer Received'].includes(s.status)).length],['Follow-ups due',pending.filter(f=>f.due_date<=today()).length]].map(([l,n])=>`<div class="stat">${l}<strong>${n}</strong></div>`).join('');
+$('schools').innerHTML=visible().map(s=>`<button class="school ${s.id===selected?'active':''}" data-school="${s.id}" aria-pressed="${s.id===selected}"><span class="muted">${String(s.original_rank).padStart(2,'0')} / ${esc(s.state)} · ${esc(s.division)}</span><br><strong>${esc(s.name)}</strong><br><span class="badge">${esc(s.status)}</span> <span class="muted">${esc(s.initial_tier)}</span></button>`).join('')||'<p class="empty">No schools match your filters.</p>';
+document.querySelectorAll('[data-school]').forEach(b=>b.onclick=()=>{selected=Number(b.dataset.school);render()});renderDetail()}
+function renderDetail(){let s=data.schools.find(s=>s.id===selected);if(!s)return;let coaches=data.coaches.filter(c=>c.school_id===s.id),tasks=data.followups.filter(f=>f.school_id===s.id&&!f.completed_at),activity=data.communications.filter(a=>a.school_id===s.id).sort((a,b)=>b.occurred_at.localeCompare(a.occurred_at));
+$('detail').innerHTML=`<span class="muted">PRIORITY ${s.original_rank} · ${esc(s.state)} · ${esc(s.division)}</span><h2 style="margin-top:8px">${esc(s.name)}</h2><span class="badge tag">Original list · details need verification</span><p class="muted">${esc(s.initial_tier)} · Original shortlist assessment</p><form id="schoolForm"><label for="status">Recruiting status</label><select id="status">${statuses.map(x=>`<option ${s.status===x?'selected':''}>${x}</option>`).join('')}</select><label for="notes">School notes</label><textarea id="notes" placeholder="What matters about this program?">${esc(s.notes)}</textarea><button style="margin-top:10px">Save school</button></form><h3>Coaching contacts</h3>${coaches.map(c=>`<div class="row"><strong>${esc(c.name)}</strong><div class="muted">${esc(c.role)}</div><p>${esc(c.email||'Email not publicly listed')}</p><p class="muted">${esc(c.source_note||'')}</p><span class="badge ${c.verified_at?'':'tag'}">${esc(c.verification_status)}</span>${c.verified_at?`<p class="muted">Checked ${esc(c.verified_at)} · <a href="${esc(c.source_url)}" target="_blank" rel="noopener noreferrer">Official source</a></p>`:''}</div>`).join('')||'<p class="muted">No coaching contacts supplied yet.</p>'}<h3>Next steps</h3>${tasks.map(f=>`<div class="follow">${esc(f.due_date)} · ${esc(f.task)}<button data-complete="${f.id}">Mark done</button></div>`).join('')||'<p class="muted">No pending follow-ups.</p>'}<form id="followForm"><label for="due">Follow-up date</label><input type="date" id="due" required value="${today()}"><label for="task">What needs to happen?</label><input id="task" required style="width:100%" placeholder="e.g. Verify recruiting coordinator"><button style="margin-top:10px">Add follow-up</button></form><h3>Communication history</h3>${activity.map(a=>`<div class="row"><strong>${esc(a.kind)} · ${esc(a.occurred_at)}</strong><p>${esc(a.body)}</p></div>`).join('')||'<p class="muted">No communication recorded.</p>'}<form id="activityForm"><label for="kind">Log an activity</label><select id="kind"><option>Call</option><option>Visit</option><option>Note</option></select><label for="activityDate">Date</label><input type="date" id="activityDate" value="${today()}" required><label for="activityBody">Details</label><textarea id="activityBody" required></textarea><button>Save activity</button></form><p class="muted">Use Email coach to review a draft. Direct sending requires the dashboard Gmail connection.</p>`;
+$('schoolForm').onsubmit=e=>{e.preventDefault();save('school',{id:s.id,status:$('status').value,notes:$('notes').value})};$('followForm').onsubmit=e=>{e.preventDefault();save('followup',{school_id:s.id,due_date:$('due').value,task:$('task').value})};$('activityForm').onsubmit=e=>{e.preventDefault();save('communication',{school_id:s.id,kind:$('kind').value,date:$('activityDate').value,body:$('activityBody').value})};document.querySelectorAll('[data-complete]').forEach(b=>b.onclick=()=>save('complete',{id:Number(b.dataset.complete)}))}
+$('search').oninput=render;$('filter').onchange=render;$('print').onclick=()=>{if(!data)return;let list=visible();$('report').innerHTML=`<h2>Recruiting report · ${today()}</h2><p>${list.length} schools · Original shortlist details require verification</p>`+list.map(s=>`<article class="report-school"><h3>${s.original_rank}. ${esc(s.name)} — ${esc(s.state)} / ${esc(s.division)}</h3><p>${esc(s.status)} · ${esc(s.initial_tier)}</p>${data.coaches.filter(c=>c.school_id===s.id).map(c=>`<p>${esc(c.name)} · ${esc(c.role)} · ${esc(c.email||'Email unavailable')} (${esc(c.verification_status)}${c.verified_at?', '+esc(c.verified_at):''})</p>`).join('')}${s.notes?`<p>${esc(s.notes)}</p>`:''}${data.followups.filter(f=>f.school_id===s.id&&!f.completed_at).map(f=>`<p>Follow-up ${esc(f.due_date)}: ${esc(f.task)}</p>`).join('')}</article>`).join('');window.print()};window.startDashboard=()=>load().catch(e=>message(e.message,true));
+</script><script src="email.js"></script><script>const schoolDialog=document.createElement('dialog');schoolDialog.id='schoolDialog';schoolDialog.setAttribute('aria-label','School information');schoolDialog.style.cssText='width:min(850px,95vw);max-height:92vh;padding:22px;border:1px solid #b7c5bd;border-radius:14px;color:#192f31';
+const closeSchool=document.createElement('button');closeSchool.type='button';closeSchool.textContent='×';closeSchool.setAttribute('aria-label','Close school information');closeSchool.className='secondary';closeSchool.style.cssText='position:sticky;top:0;float:right;width:44px;height:44px;padding:0;font-size:30px;background:white;z-index:2';closeSchool.onclick=()=>schoolDialog.close();schoolDialog.append(closeSchool,$('detail'));document.body.append(schoolDialog);
+const schoolStyle=document.createElement('style');schoolStyle.textContent=`
+.layout{grid-template-columns:1fr}#schoolDialog .panel{border:0;padding:10px}
+#schools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+.school-tile{display:flex;flex-direction:column;border:1px solid #d8e2da;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 3px 12px #173e2b06;transition:box-shadow .15s,transform .15s}
+.school-tile:hover{transform:translateY(-2px);box-shadow:0 8px 22px #173e2b10;border-color:#a9c0ae}
+.school-tile .school{flex:1;border:0;padding:23px;text-align:left;border-radius:0;background:#fff}
+.school-tile .school:hover,.school-tile .school.active{background:#f6f9f2}
+.school-tile .school strong{font-size:23px;line-height:1.25;display:block;margin:13px 0 10px;letter-spacing:-.4px}
+.card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#6b7e70;font-size:12px;text-transform:uppercase;letter-spacing:1px}
+.card-rank{font-weight:700;color:#526f5a}.card-status{display:inline-flex;padding:6px 10px;background:#eef1ed;color:#59685d;border-radius:30px;font-size:12px;font-weight:600}
+.card-status.sent{background:#e4f1ed;color:#21604e}.card-status.interest{background:#fff1ce;color:#795e16}
+.card-tier{display:block;font-size:13px;color:#788475;margin:9px 0 20px}
+.card-contact{display:block;border-top:1px solid #e7ece5;padding-top:15px;min-height:83px}
+.card-label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:#849080;margin-bottom:6px}
+.card-contact-name{display:block;font-weight:600;font-size:15px;color:#264c3b}
+.card-role{display:block;color:#6b7d70;font-size:12px;line-height:1.4;margin:4px 0;overflow-wrap:anywhere}
+.card-counts{display:block;font-size:12px;color:#60715f;margin:15px 0}
+.card-activity{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:13px 0 0;border-top:1px solid #e7ece5}
+.card-value{display:block;font-size:12px;line-height:1.5;color:#405e4d;overflow-wrap:anywhere}
+.school-tile .email-action{align-self:stretch;margin:16px 23px 21px;padding:11px;background:#f4f8f1;border:1px solid #d4e0cf;color:#28563e;font-weight:600;font-size:13px}
+.school-tile .email-action:hover{background:#e7f0e0}
+/* Stronger contrast without changing the card layout. */
+body{background:#e6ece8;color:#142c24}.panel,.stat{border-color:#b5c5bb}
+.muted,.profile{color:#43594d}
+.school-tile{border-color:#a6bcae;box-shadow:0 3px 12px #173e2b0d}
+.school-tile:hover{border-color:#32654b;box-shadow:0 8px 22px #173e2b1c}
+.school-tile .school.active,.school-tile .school:hover{background:#edf5ed}
+.school-tile .school strong{color:#143e2c}
+.card-top,.card-rank,.card-role,.card-tier,.card-counts{color:#405b49}
+.card-label{color:#435d4c;font-weight:700;font-size:11px}
+.card-contact-name,.card-value{color:#203f2d}
+.card-contact,.card-activity{border-color:#c5d3c8}
+.card-status{background:#e2e8e3;color:#344c3c;border:1px solid #b3c3b7}
+.card-status.sent{background:#dceaff;color:#154777;border-color:#9ebee3}
+.card-status.interest{background:#ffedb5;color:#684700;border-color:#d4b767}
+.school-tile .email-action{background:#20573d;border-color:#20573d;color:#fff}
+.school-tile .email-action:hover{background:#143f2b;border-color:#143f2b}
+.school-tile.email-sent{background:#e7e9e8;border-color:#a9b0ac}
+.school-tile.email-sent .school{background:#e7e9e8}
+.school-tile.email-sent .school:hover,.school-tile.email-sent .school.active{background:#dce0dd}
+.school-tile.email-sent .card-contact,.school-tile.email-sent .card-activity{border-color:#bcc4bf}
+input,select,textarea{border-color:#8fa797;color:#1d3729}input::placeholder,textarea::placeholder{color:#536959;opacity:1}
+dialog::backdrop{background:#102d2baa}
+@media(max-width:800px){#schools{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}}
+@media(max-width:620px){#schools{grid-template-columns:1fr}.school-tile .school{padding:20px}.school-tile .school strong{font-size:22px}}
+@media print{#schoolDialog,#emailDialog{display:none!important}}`;document.head.append(schoolStyle);
+function schoolPopupLinks(){document.querySelectorAll('[data-school]').forEach(b=>{
+const id=Number(b.dataset.school),s=data.schools.find(s=>s.id===id),coaches=data.coaches.filter(c=>c.school_id===id);
+const eligible=coaches.filter(c=>c.email&&c.verified_at&&c.verification_status==='Listed on official site');
+const contact=eligible.find(c=>/recruit/i.test(c.role))||eligible.find(c=>/head/i.test(c.role))||eligible[0]||coaches[0];
+const activities=data.communications.filter(a=>a.school_id===id).sort((a,b)=>b.occurred_at.localeCompare(a.occurred_at));
+const next=data.followups.filter(f=>f.school_id===id&&!f.completed_at).sort((a,b)=>a.due_date.localeCompare(b.due_date))[0];
+const dateLabel=value=>{let d=new Date(value.length===10?value+'T12:00:00':value);return Number.isNaN(d.getTime())?value:d.toLocaleDateString('en-US',{month:'short',day:'numeric'})};
+const statusClass=s.status==='Email Sent'?'sent':['Interested','Visit Scheduled','Offer Received'].includes(s.status)?'interest':'';
+b.innerHTML=`<span class="card-top"><span class="card-rank">Priority ${String(s.original_rank).padStart(2,'0')}</span><span>${esc(s.state)} · ${esc(s.division)}</span></span><strong>${esc(s.name)}</strong><span class="card-status ${statusClass}">${esc(s.status)}</span><span class="card-tier">${esc(s.initial_tier)} · Original shortlist</span><span class="card-contact"><span class="card-label">${contact&&/recruit/i.test(contact.role)?'Recruiting contact':'Coaching contact'}</span><span class="card-contact-name">${esc(contact?.name||'Contact to be added')}</span><span class="card-role">${esc(contact?.role||'Not yet listed')}</span></span><span class="card-counts">${coaches.length} staff contacts · ${coaches.filter(c=>c.email).length} listed emails</span><span class="card-activity"><span><span class="card-label">Last activity</span><span class="card-value">${activities[0]?esc(activities[0].kind)+' · '+esc(dateLabel(activities[0].occurred_at)):'No activity yet'}</span></span><span><span class="card-label">Next follow-up</span><span class="card-value">${next?esc(dateLabel(next.due_date)):'Not scheduled'}</span></span></span>`;
+b.onclick=()=>{selected=id;render();schoolDialog.showModal()};
+if(!b.parentElement.classList.contains('school-tile')){let tile=document.createElement('div');tile.className='school-tile';b.before(tile);let email=b.nextElementSibling;tile.append(b);if(email?.matches('[data-email-school]'))tile.append(email)}b.parentElement.classList.toggle('email-sent',s.status==='Email Sent')})}
+const renderBeforeSchoolPopup=render;render=function(){renderBeforeSchoolPopup();schoolPopupLinks()};if(data)schoolPopupLinks();
+// Resolve the latest renderer when controls change, after all card enhancements.
+$('search').oninput=()=>render();
+$('filter').onchange=()=>render();
+</script><script>cloudReady();</script></html>
+
